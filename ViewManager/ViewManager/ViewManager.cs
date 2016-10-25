@@ -11,10 +11,10 @@ namespace ViewManagement
         #region Fields
 
         protected IoCManager _iocManager;
-        private static ViewManager _instance;
         private ContentControl _content;
         private ContentControl _popUpControl;
         private List<ViewModelConnection> _views = new List<ViewModelConnection>();
+        private ContentControl _topBarControl;
 
         #endregion Fields
 
@@ -29,22 +29,35 @@ namespace ViewManagement
 
         #region Methods
 
-        public void Init(ContentControl content, ContentControl popUpControl = null)
+        public void Init(ContentControl content, ContentControl popUpControl = null, ContentControl topBarControl = null)
         {
             _content = content;
             _popUpControl = popUpControl;
+            _topBarControl = topBarControl;
         }
 
-        public void OpenView<VM>() where VM : ViewModelBase
+        public void OpenView<VM>(ContentControl control = null, Parameter parameter = null) where VM : ViewModelBaseWrapper
         {
             System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
             {
-                OpenViewBlocking(typeof(VM));
+                if (control != null)
+                    OpenViewBlocking(typeof(VM), control, parameter);
+                else
+                    OpenViewBlocking(typeof(VM), null, parameter);
+
             }), (System.Windows.Threading.DispatcherPriority)10, null);
         }
 
-        public void OpenViewBlocking(Type VM)
+        public void OpenViewBlocking(Type VM, ContentControl control = null, Parameter parameter = null)
         {
+            if (control != null)
+            {
+                if (control.DataContext as ViewModelBaseWrapper != null)
+                {
+                    (control.DataContext as ViewModelBaseWrapper).NavigatedFrom();
+                }
+            }
+
             // Get item for passed viewModel type
             ViewModelConnection item = _views.FirstOrDefault(x => x.ViewModelType == VM);
             if (item == null)
@@ -52,12 +65,24 @@ namespace ViewManagement
 
             ContentControl view = GetView(item);
 
-            ViewModelBase viewModel = view.DataContext as ViewModelBase;
+            ViewModelBaseWrapper viewModel = view.DataContext as ViewModelBaseWrapper;
             if (viewModel == null)
                 viewModel = GetViewModel(item);
 
-            view.DataContext = viewModel;
-            _content.Content = view;
+            if (control == null)
+            {
+                view.DataContext = viewModel;
+                _content.Content = view;
+            }
+            else
+            {
+                view.DataContext = viewModel;
+                control.Content = view;
+            }
+
+            viewModel.Parameters = parameter;
+            viewModel.NavigatedTo();
+
         }
 
         public void RegisterViewModel<VM, V>()
@@ -73,10 +98,10 @@ namespace ViewManagement
 
         protected ContentControl GetView(ViewModelConnection item) => Activator.CreateInstance(item.ViewType) as ContentControl;
 
-        protected ViewModelBase GetViewModel(ViewModelConnection item)
+        protected ViewModelBaseWrapper GetViewModel(ViewModelConnection item)
         {
             Type type = item.ViewModelType;
-            ViewModelBase viewModel = (ViewModelBase)_iocManager.Resolve(item.ViewModelType);
+            ViewModelBaseWrapper viewModel = (ViewModelBaseWrapper)_iocManager.Resolve(item.ViewModelType);
 
             return viewModel;
         }
