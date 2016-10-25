@@ -10,23 +10,10 @@ public class LogManager
     #region Fields
 
     private ILog _log = null;
-    private static LogManager _instance;
 
     #endregion Fields
 
     #region Properties
-
-    public static LogManager Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                _instance = new LogManager();
-            }
-            return _instance;
-        }
-    }
 
     public void Init(ILog log)
     {
